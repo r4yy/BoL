@@ -5,7 +5,7 @@ local SOURCELIB_PATH = LIB_PATH.."SourceLib.lua"
 
 local updateScript = true
 local scriptName = "RedCapAnnie"
-local version = 0.1
+local version = "0.1"
 local host = "raw.github.com"
 local updatePath = "/r4yy/BoL/master/" .. scriptName .. ".lua"
 local filePath = SCRIPT_PATH .. GetCurrentEnv().FILE_NAME
