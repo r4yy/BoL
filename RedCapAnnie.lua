@@ -1,17 +1,17 @@
 if myHero.charName ~= "Annie" then return end
 
-
 local sversion = "0.21"
 local scriptName = "RedCapAnnie"
 local AUTOUPDATE = true
 local UPDATE_HOST = "raw.github.com"
-local UPDATE_PATH = "/r4yy/BoL/master/RedCapAnnie.lua".."?rand="..math.random(1,10000)
+local UPDATE_PATH = "/r4yy/BoL/master/"..scriptName..".lua".."?rand="..math.random(1,10000)
 local UPDATE_FILE_PATH = SCRIPT_PATH..GetCurrentEnv().FILE_NAME
 local UPDATE_URL = "https://"..UPDATE_HOST..UPDATE_PATH
 
-function AutoupdaterMsg(msg) print("<font color=\"#6699ff\"><b>RedCapAnnie:</b></font> <font color=\"#FFFFFF\">"..msg..".</font>") end
+--Fantastik
+function AutoupdaterMsg(msg) print("<font color=\"#6699ff\"><b>"..scriptName..":</b></font> <font color=\"#FFFFFF\">"..msg..".</font>") end
 if AUTOUPDATE then
-	local ServerData = GetWebResult(UPDATE_HOST, "/r4yy/BoL/master/version/RedCapAnnie.version")
+	local ServerData = GetWebResult(UPDATE_HOST, "/r4yy/BoL/master/version/"..scriptName..".version")
 	if ServerData then
 		ServerVersion = type(tonumber(ServerData)) == "number" and tonumber(ServerData) or nil
 		if ServerVersion then
@@ -45,7 +45,7 @@ for DOWNLOAD_LIB_NAME, DOWNLOAD_LIB_URL in pairs(REQUIRED_LIBS) do
 		DOWNLOADING_LIBS = true
 		DOWNLOAD_COUNT = DOWNLOAD_COUNT + 1
 
-		print("<font color=\"#00FF00\">RedCapAnnie:</font><font color=\"#FFDFBF\"> Not all required libraries are installed. Downloading: <b><u><font color=\"#73B9FF\">"..DOWNLOAD_LIB_NAME.."</font></u></b> now! Please don't press [F9]!</font>")
+		print("<font color=\"#00FF00\">"..scriptName..":</font><font color=\"#FFDFBF\"> Not all required libraries are installed. Downloading: <b><u><font color=\"#73B9FF\">"..DOWNLOAD_LIB_NAME.."</font></u></b> now! Please don't press [F9]!</font>")
 		print("Download started")
 		DownloadFile(DOWNLOAD_LIB_URL, LIB_PATH .. DOWNLOAD_LIB_NAME..".lua", AfterDownload)
 		print("Download finished")
@@ -56,11 +56,11 @@ function AfterDownload()
 	DOWNLOAD_COUNT = DOWNLOAD_COUNT - 1
 	if DOWNLOAD_COUNT == 0 then
 		DOWNLOADING_LIBS = false
-		print("<font color=\"#00FF00\">RedCapAnnie:</font><font color=\"#FFDFBF\"> Required libraries downloaded successfully, please reload (double [F9]).</font>")
+		print("<font color=\"#00FF00\">"..scriptName..":</font><font color=\"#FFDFBF\"> Required libraries downloaded successfully, please reload (double [F9]).</font>")
 	end
 end
 if DOWNLOADING_LIBS then return end
-
+--
 
 
 
@@ -75,8 +75,6 @@ local spellLevel = 0
 
 --> Ow Data 
 local VP = nil
-
-local useSAC, useSOW, useSxOW = false, false, false
 
 local MMAandSAC = false
 local isMMA, isSAC, isSOW, isSxOW = false, false, false, false
@@ -121,7 +119,6 @@ function Menu()
 	myMenu:addSubMenu("Annie - Combo Settings", "combo")
 		myMenu.combo:addParam("useQ", "Use Q in Combo", SCRIPT_PARAM_ONOFF, false)
 		myMenu.combo:addParam("useW", "Use W in Combo", SCRIPT_PARAM_ONOFF, false)
-		myMenu.combo:addParam("useE", "Use E in Combo", SCRIPT_PARAM_ONOFF, false)
 		myMenu.combo:addParam("useR", "Use R in Combo", SCRIPT_PARAM_ONOFF, false)
 		myMenu.combo:addParam("comboMode", "Combo Mode", SCRIPT_PARAM_LIST, 1, { "QWR", "WQR", "RWQ", "RQW"})
 		myMenu.combo:addParam("comboItems", "Use Items in Combo", SCRIPT_PARAM_ONOFF, false)
@@ -316,7 +313,7 @@ end
 
 function castW(unit)
 	if GetDistance(unit) <= wRange and wReady then
-		local CastPosition,  HitChance,  Position = VP:GetLineCastPosition(unit, wDelay, wWidth, wRange, wSpeed, myHero, false)
+		local CastPosition,  HitChance,  Position = VP:GetLineCastPosition(myHero, wDelay, wWidth, wRange, wSpeed, myHero, false)
 			if HitChance >= 2 then 
 				CastSpell(_W, CastPosition.x, CastPosition.z)
 			end
@@ -325,7 +322,7 @@ end
 				
 function castR(unit)
 	if GetDistance(unit) <= rRange and rReady then
-		local AOECastPosition,  MainTargetHitChance,  nTargets = VP:GetCircularAOECastPosition(unit, rDelay, rWidth, rRange, rSpeed, myHero)
+		local AOECastPosition,  MainTargetHitChance, nTargets = VP:GetCircularAOECastPosition(unit, rDelay, rWidth, rRange, rSpeed, myHero)
 			if MainTargetHitChance >= 2 then 
 				CastSpell(_R, AOECastPosition.x, AOECastPosition.z)
 			end
@@ -340,6 +337,6 @@ function drawRanges()
 		DrawCircle(myHero.x, myHero.y, myHero.z, rRange, ARGB(75 , 185, 185, 185))
 	end
 	if myMenu.drawing.drawAA then
-		DrawCircle(myHero.x, myHero.y, myHero.z, myHero.Range, ARGB(55 , 150, 150, 150))
+		DrawCircle(myHero.x, myHero.y, myHero.z, myHero.range, ARGB(55 , 150, 150, 150))
 	end
 end
