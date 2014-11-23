@@ -96,7 +96,7 @@ local spellLevel = 0
 local VP = nil
 
 local trueRange = 0
-local useSAC, useSOW, useSxOW = false, false false
+local useSAC, useSOW, useSxOW = false, false, false
 
 local tick = 0
 local checkedMMASAC = false
