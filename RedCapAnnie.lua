@@ -1,7 +1,8 @@
 if myHero.charName ~= "Annie" then return end
 
 
-local sversion = "0.2"
+local sversion = "0.21"
+local scriptName = "RedCapAnnie"
 local AUTOUPDATE = true
 local UPDATE_HOST = "raw.github.com"
 local UPDATE_PATH = "/r4yy/BoL/master/RedCapAnnie.lua".."?rand="..math.random(1,10000)
