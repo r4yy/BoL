@@ -7,7 +7,7 @@ local SOURCELIB_PATH = LIB_PATH.."SourceLib.lua"
 
 local updateScript = true
 local scriptName = "RedCapAnnie"
-local version = 0.1
+local version = 0.2
 local host = "raw.github.com"
 local updatePath = "/r4yy/BoL/master/" .. scriptName .. ".lua"
 local filePath = SCRIPT_PATH .. GetCurrentEnv().FILE_NAME
@@ -89,6 +89,10 @@ end
 function OnTick ()
 	if myHero.dead then return end
 	ts:update()
+	
+	if myHero.combo.useCombo then
+		Combo()
+	end
 end
 
 function Annie()
@@ -166,7 +170,7 @@ end
 
 function castW(target)
 	for i, target in pairs(GetEnemyHeroes()) do
-			local CastPosition,  HitChance,  Position = VP:GetLineCastPosition(myHero, wDelay, wWidth, wRange, wSpeed, myHero, false)
+			CastPosition,  HitChance,  Position = VP:GetLineCastPosition(myHero, wDelay, wWidth, wRange, wSpeed, myHero, false)
 				if HitChance >= 2 or 3 and GetDistance(CastPosition) < wRange - 50 then 
 					CastSpell(_W, CastPosition.x, CastPosition.z)
 				end
@@ -175,7 +179,7 @@ end
 				
 function castR(target)
 	for i, target in pairs(GetEnemyHeroes()) do
-			CastPosition HitChance, Position = VP:GetCircularAOECastPosition(target, rDelay, rWidth, rRange, rSpeed, myHero)
+			CastPosition, HitChance, Position = VP:GetCircularAOECastPosition(target, rDelay, rWidth, rRange, rSpeed, myHero)
 				if HitChance >= 2 or 3 and GetDistance(CasPosition) < 600 then
 					CastSpell(_R, CastPosition.x, CasPosition.z)
 				end
@@ -187,7 +191,7 @@ function Menu()
 	myMenu = scriptConfig("Red Cap Annie", "annie")
 	
 	myMenu:addSubMenu("Orbwalking", "Orbwalking")
-		--sow:LoadToMenu(myMenu.Orbwalking)
+		SOW:LoadToMenu(myMenu.Orbwalking)
 	
 	myMenu:addSubMenu("Target selector", "ts")
 		ts:AddToMenu(myMenu.ts)	
