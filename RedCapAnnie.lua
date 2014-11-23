@@ -1,9 +1,9 @@
-local version = "0.11"
+local version = "0.2"
 local myHero = GetMyHero()
 if myHero.charName ~= "Annie" then return end
 
 --[[ 
-		RedCapAnnie v.04
+		RedCapAnnie v.0.2
 		by r4yy aka l0ST
 --]]
 
