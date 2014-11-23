@@ -4,81 +4,69 @@ if myHero.charName ~= "Annie" then return end
 --[[ 
 		RedCapAnnie v.04
 		by r4Y aka l0ST
-		
-		Credits: Fantastik - helped me a lot with this script	
 --]]
 
 ---> Auto downloader/updater <----
 
-local SOURCELIB_URL = "https://raw.github.com/TheRealSource/public/master/common/SourceLib.lua"
-local SOURCELIB_PATH = LIB_PATH.."SourceLib.lua"
-
-local updateScript = true
 local scriptName = "RedCapAnnie"
-local host = "raw.github.com"
-local updatePath = "/r4yy/BoL/master/" .. scriptName .. ".lua"
-local filePath = SCRIPT_PATH .. GetCurrentEnv().FILE_NAME
-local versionPath = "/r4yy/BoL/master/version/" .. scriptName .. ".version"
-local url = "https://"..host..updatePath
+local AUTOUPDATE = true
+local UPDATE_HOST = "raw.github.com"
+local UPDATE_PATH = "/r4yy/BoL/master/" .. scriptName .. ".lua"
+local UPDATE_FILE_PATH = SCRIPT_PATH..GetCurrentEnv().FILE_NAME
+local UPDATE_URL = "https://"..UPDATE_HOST..UPDATE_PATH
+local UPDATE_VER_PATH = "/r4yy/BoL/master/version/" .. scriptName .. ".version"
 
---> Check script for update and download it
 function AutoupdaterMsg(msg) print("<font color=\"#6699ff\"><b>RedCapAnnie:</b></font> <font color=\"#FFFFFF\">"..msg..".</font>") end
-if updateScript then
-	local ServerData = GetWebResult(host, versionPath)
+if AUTOUPDATE then
+	local ServerData = GetWebResult(UPDATE_HOST, UPDATE_VER_PATH)
 	if ServerData then
-		ServerVersion = type(tonumber(ServerData)) == "number" and tonumber (ServerData) or nil
+		ServerVersion = type(tonumber(ServerData)) == "number" and tonumber(ServerData) or nil
 		if ServerVersion then
 			if tonumber(version) < ServerVersion then
-				AutoupdaterMsg("New Version available"..ServerVersion)
+				AutoupdaterMsg("New version available "..ServerVersion)
 				AutoupdaterMsg("Updating, please don't press F9")
-				DelayAction(function() DownloadFile(url, filePath, function() AutoupdaterMsg("Succelfully updated from "..version.."to "..ServerVersion..". Please press F9 twice to reload the script :) .") end) end, 3)
+				DelayAction(function() DownloadFile(UPDATE_URL, UPDATE_FILE_PATH, function () AutoupdaterMsg("Successfully updated. ("..version.." => "..ServerVersion.."), press F9 twice to load the updated version.") end) end, 3)
 			else
-				AutoupdaterMsg("You've got the lastest version:"..ServerVersion)
+				AutoupdaterMsg("You have got the latest version ("..ServerVersion..")")
 			end
 		end
 	else
-		AutoupdaterMsg("There was an error downloading the version info")
+		AutoupdaterMsg("Error downloading version info")
 	end
 end
---<
 
-
-
-
-
-
---> Check for Vpre and SOW and download them
-local required_files =
-		{
-			["VPrediction"] = "https://raw.github.com/Hellsing/BoL/master/common/VPrediction.lua",
-			["SOW"] = "https://raw.github.com/Hellsing/BoL/master/common/SOW.lua",
-		}	
-local download_files = false
-local dCounter = 0
+local REQUIRED_LIBS = 
+	{
+		["VPrediction"] = "https://raw.github.com/Hellsing/BoL/master/common/VPrediction.lua",
+		["SOW"] = "https://raw.github.com/Hellsing/BoL/master/common/SOW.lua",
+--		if VIP_USER then ["Prodiction"] = "https://bitbucket.org/Klokje/public-klokjes-bol-scripts/raw/7f8427d943e993667acd4a51a39cf9aa2b71f222/Test/Prodiction/Prodiction.lua" end,
+	}		
+local DOWNLOADING_LIBS = false
+local DOWNLOAD_COUNT = 0
 local SELF_NAME = GetCurrentEnv() and GetCurrentEnv().FILE_NAME or ""
 
-
-for file_name, file_url in pairs(required_files) do
-	if FileExist(LIB_PATH..file_name.. ".lua") then
-		require(file_name)
+for DOWNLOAD_LIB_NAME, DOWNLOAD_LIB_URL in pairs(REQUIRED_LIBS) do
+	if FileExist(LIB_PATH .. DOWNLOAD_LIB_NAME .. ".lua") then
+		require(DOWNLOAD_LIB_NAME)
 	else
-		download_files = true
-		dCounter = dCounter +1
-		print("<font color=\"#00FF00\">FRedCapAnnie:</font><font color=\"#FFDFBF\"> Need some more libraries. Downloading: <b><u><font color=\"#73B9FF\">"..file_name.."</font></u></b> now! Please don't press [F9]!</font>")
-		print("Download started..")
-		DownloadFile(file_url, LIB_PATH..file_name..".lua", deCounter)
-		print(".. finished!!")
+		DOWNLOADING_LIBS = true
+		DOWNLOAD_COUNT = DOWNLOAD_COUNT + 1
+
+		print("<font color=\"#00FF00\">Fantastik Sivir:</font><font color=\"#FFDFBF\"> Not all required libraries are installed. Downloading: <b><u><font color=\"#73B9FF\">"..DOWNLOAD_LIB_NAME.."</font></u></b> now! Please don't press [F9]!</font>")
+		print("Download started")
+		DownloadFile(DOWNLOAD_LIB_URL, LIB_PATH .. DOWNLOAD_LIB_NAME..".lua", AfterDownload)
+		print("Download finished")
 	end
 end
 
-function deCounter()
-	dCounter = dCounter - 1
-	if dCounter == 0 then
-		download_files = false
-		print("<font color=\"#00FF00\">RedCapAnnie:</font><font color=\"#FFDFBF\"> All required libraries downloaded successfully, please press twice F9 for reloading.</font>")
+function AfterDownload()
+	DOWNLOAD_COUNT = DOWNLOAD_COUNT - 1
+	if DOWNLOAD_COUNT == 0 then
+		DOWNLOADING_LIBS = false
+		print("<font color=\"#00FF00\">Fantastik Sivir:</font><font color=\"#FFDFBF\"> Required libraries downloaded successfully, please reload (double [F9]).</font>")
 	end
-end	
---<
+end
+if DOWNLOADING_LIBS then return end
 
 
 
@@ -99,44 +87,37 @@ local trueRange = 0
 local useSAC, useSOW, useSxOW = false, false, false
 
 local tick = 0
-local checkedMMASAC = false
-local is_MMA = false
-local is_REVAMP = false
-local is_REBORN = false
-local is_SAC = false
+local MMAandSAC = false
+local is_MMA, is_SAC, is_SOW, is_SxOW = false, false, false, false
 ----------------------------------------------------
 
 
 
 --> Target Data
 local ts = nil
-local Target, currTargetPos = nil, nil
+local target = nil
 --------------------------------------<
 
 
 
-
-
 function OnLoad()
-	tick = GetTickCount()
+	VP = VPrediction()
 	Menu()
-	chooseP()
 	Ts()
 	PrintChat("<font color='#e62519'> >> "..scriptName.." v."..version.." by r4Y loaded!</font>")	
 end
 
 function OnTick()
 	if myHero.dead then return end
-	checkOW()
 	Checks()
+	if myMenu.combo.useCombo then
+		Combo(target)
+	end
 end
 
 function OnDraw()
 	drawRanges()
 end
-
-
-
 
 function Menu()
 	myMenu = scriptConfig("Red Cap Annie", "annie")
@@ -182,18 +163,10 @@ function Menu()
 		myMenu.misc.skinChanger:addParam("skinNo", "Choose your model", SCRIPT_PARAM_LIST, 1, { "Classic Skin", "Goth Annie", "Red Riding Annie", "Annie in Wonderland", "Prom Queen Annie", "Frostfire Annie", "Franken Tibbers Annie", "Reverse Annie", "Panda Annie"})
 end
 
-function chooseP()
-
-end
-
 function Ts()
 	ts = TargetSelector(TARGET_LESS_CAST_PRIORITY, qRange)
 	ts.name = "Annie"
 	myMenu.ts:addTS(ts)
-end
-
-function checkOW()
-
 end
 
 function Checks()
@@ -204,10 +177,47 @@ function Checks()
 	trueRange = myHero.range + (GetDistance(myHero.minBBox) - 5)
 	target = owTarget()
 	autoLevelSkills()
+	checkOW()
 end
 
 function owTarget()
-
+if not MMAandSAC then return end
+	if is_MMA and is_SAC then		
+		if Menu.ts.mma then
+			Menu.ts.sac = false
+			Menu.ts.ts = false
+		elseif Menu.ts.sac then
+			Menu.ts.mma = false
+			Menu.ts.ts = false
+		elseif	Menu.ts.ts then
+			Menu.ts.mma = false
+			Menu.ts.sac = false
+		end
+	end	
+	if not is_MMA and is_SAC then
+		if Menu.ts.sac then
+			Menu.ts.ts = false
+		else
+			Menu.ts.ts = true
+		end	
+	end
+	if is_MMA and not is_SAC then
+		if Menu.ts.mma then
+			Menu.ts.ts = false
+		else
+			Menu.ts.ts = true
+		end	
+	end
+	if not is_MMA and not is_SAC then
+		Menu.ts.ts = true	
+	end		
+	if _G.MMA_Target and _G.MMA_Target.type == myHero.type then
+		return _G.MMA_Target 
+	end
+    if _G.AutoCarry and _G.AutoCarry.Crosshair and _G.AutoCarry.Attack_Crosshair and _G.AutoCarry.Attack_Crosshair.target and _G.AutoCarry.Attack_Crosshair.target.type == myHero.type then
+		return _G.AutoCarry.Attack_Crosshair.target		
+	end
+    return ts.target
 end
 
 function autoLevelSkills()
@@ -241,6 +251,95 @@ function autoLevelSkills()
 	end
 end
 
+function checkOW()
+	if MMAandSAC == false then
+		if is_MMA == false and is_SAC == false then
+			if _G.AutoCarry then
+				PrintChat(""..scriptName.." Found SAC. SAC features loaded")
+				is_SAC = true
+			end	
+			if _G.MMA_Loaded then
+				PrintChat(""..scriptName.." Found MMA. MMA features loaded")
+				is_MMA = true
+			end	
+		end 
+		if is_MMA then
+			myMenu.ts:addParam("mma", "Use MMA Target Selector", SCRIPT_PARAM_ONOFF, false)
+		end 
+		if sac_menu_loaded == false and is_SAC == true then
+			myMenu.ts:addParam("sac", "Use SAC Target Selector", SCRIPT_PARAM_ONOFF, false)
+	end 
+end 
+
+end
+
+function Combo(unit)
+	if unit.type == myHero.type and unit ~= nil and ValidTarget(unit) then
+		if myMenu.combo.comboMode == 1 then
+			if myMenu.combo.useQ then
+				CastSpell(_Q, unit.x, unit.z)
+			end
+			if myMenu.combo.useW then
+				castW(unit)
+			end
+			if myMenu.combo.useR then
+				castR(unit)
+			end
+		end
+		if myMenu.combo.comboMode == 2 then
+			if myMenu.combo.useW then
+				castW(unit)
+			end
+			if myMenu.combo.useQ then
+				CastSpell(_Q, unit.x, unit.z)
+			end
+			if myMenu.combo.useR then
+				castR(unit)
+			end
+		end
+		if myMenu.combo.comboMode == 3 then
+			if myMenu.combo.useR then
+				castR(unit)
+			end
+			if myMenu.combo.useW then
+				castW(unit)
+			end
+			if myMenu.combo.useQ then
+				CastSpell(_Q, unit.x, unit.z)
+			end
+		end
+		if myMenu.combo.comboMode == 4 then
+			if myMenu.combo.useR then
+				castR(unit)
+			end
+			if myMenu.combo.useQ then
+				CastSpell(_Q, unit.x, unit.z)
+			end
+			if myMenu.combo.useW then
+				castW(unit)
+			end
+		end	
+	end
+end
+
+function castW(unit)
+	if unit ~= nil and GetDistance(unit) <= wRange and wReady then
+		local CastPosition,  HitChance,  Position = VP:GetLineCastPosition(unit, wDelay, wWidth, wRange, wSpeed, myHero, false)
+			if HitChance >= 2 then 
+				CastSpell(_W, CastPosition.x, CastPosition.z)
+			end
+	end
+end		
+				
+function castR(unit)
+	if unit ~= nil and GetDistance(unit) <= rRange and rReady then
+		local CastPosition,  HitChance,  Position = VP:GetLineCastPosition(unit, rDelay, rWidth, rRange, rSpeed, myHero, false)
+			if HitChance >= 2 then 
+				CastSpell(_R, CastPosition.x, CastPosition.z)
+			end
+	end
+end
+
 function drawRanges()
 	if myMenu.drawing.drawQ then
 		DrawCircle(myHero.x, myHero.y, myHero.z, qRange, ARGB(35 , 105, 105, 105))
@@ -252,27 +351,3 @@ function drawRanges()
 		DrawCircle(myHero.x, myHero.y, myHero.z, trueRange, ARGB(55 , 150, 150, 150))
 	end
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
