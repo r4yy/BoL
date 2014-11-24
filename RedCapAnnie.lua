@@ -86,8 +86,8 @@ local qDelay, wDelay, rDelay = 0.25, 0.25, 0.25
 local qSpeed, wSpeed, rSpeed = 1400, math.huge, math.huge
 local qReady, wReady, rReady = false, false, false
 
-local spellLevel = 0,
-local skin = nil
+local spellLevel = 0
+local lastSkin = 0
 
 --> Ow Data 
 local VP = nil
@@ -115,6 +115,7 @@ end
 function OnTick()
 	if myHero.dead then return end
 	Checks()
+	SkinHack()
 	if myMenu.combo.useCombo then
 		Combo(target)
 	end
@@ -161,17 +162,15 @@ function Menu()
 		
 	myMenu:addSubMenu("Annie - Misc Settings", "misc")
 		myMenu.misc:addSubMenu("Auto charge stun", "chargeStun")
-			myMenu.misc.chargeStun:addParam("chargeW", "Charge stun with W"), SCRIPT_PARAM_ONOFF, false)
-			myMenu.misc.chargeStun:addParam("chargeE", "Charge stun with E"), SCRIPT_PARAM_ONOFF, false)
-			myMenu.misc.chargeStun:addParam("enable", "Charge stun"), SCRIPT_PARAM_ONFOFF, false)
+			myMenu.misc.chargeStun:addParam("chargeW", "Charge stun with W", SCRIPT_PARAM_ONOFF, false)
+			myMenu.misc.chargeStun:addParam("chargeE", "Charge stun with E", SCRIPT_PARAM_ONOFF, false)
+			myMenu.misc.chargeStun:addParam("enable", "Charge stun", SCRIPT_PARAM_ONOFF, false)
 		myMenu.misc:addSubMenu("Auto level spells", "lvlSkill")
 			myMenu.misc.lvlSkill:addParam("skillOrder", "Order", SCRIPT_PARAM_LIST, 1, {"R>W>Q>E", "R>Q>W>E", "R>E>W>Q", "R>E>Q>W"})
-			myMenu.misc.lvlSkill:addParam("enable", "Auto Level Skills", SCRIPT_PARAM_ONOFF, false)
-	if VIP_User then
-		myMenu.misc:addSubMenu("SkinChanger for VIPs", "skinChanger")	
-			myMenu.misc.skinChanger:addParam("skinNo", "Choose your model", SCRIPT_PARAM_LIST, 1, { "Classic Skin", "Goth Annie", "Red Riding Annie", "Annie in Wonderland", "Prom Queen Annie", "Frostfire Annie", "Franken Tibbers Annie", "Reverse Annie", "Panda Annie"})
-			myMenu.misc.skinChanger:addParam("enable", "SkinChanger", SCRIPT_PARAM_ONOFF, false)			
-	end
+			myMenu.misc.lvlSkill:addParam("enable", "Enable SkinChanger", SCRIPT_PARAM_ONOFF, false)
+		myMenu.misc:addSubMenu("SkinChanger", "skinChanger")
+			myMenu.misc.skinChanger:addParam("SkinHack","Use Skin Hack", SCRIPT_PARAM_ONOFF, false)
+			myMenu.misc.skinChanger:addParam("skin", "Skin Hack by Shalzuth:", SCRIPT_PARAM_LIST, 1, { "Classic", "Goth Annie", "Red Riding Annie", "Annie in Wonderland", "Prom Queen Annie", "Frostfire Annie", "Reverse Annie", "Franken Tibbers Annie", "Panda Annie"})
 end
 
 function Ts()
@@ -181,7 +180,7 @@ function Ts()
 end
 
 function Checks()
-	ts:update()
+	--ts:update()
 	qReady = (myHero:CanUseSpell(_Q) == READY)
     wReady = (myHero:CanUseSpell(_W) == READY)
     rReady = (myHero:CanUseSpell(_R) == READY)
@@ -193,33 +192,33 @@ end
 function owTarget()
 if not MMAandSAC then return end
 	if is_MMA and is_SAC then		
-		if Menu.ts.mma then
-			Menu.ts.sac = false
-			Menu.ts.ts = false
-		elseif Menu.ts.sac then
-			Menu.ts.mma = false
-			Menu.ts.ts = false
-		elseif	Menu.ts.ts then
-			Menu.ts.mma = false
-			Menu.ts.sac = false
+		if myMenu.ts.mma then
+			myMenu.ts.sac = false
+			myMenu.ts.ts = false
+		elseif myMenu.ts.sac then
+			myMenu.ts.mma = false
+			myMenu.ts.ts = false
+		elseif	myMenu.ts.ts then
+			myMenu.ts.mma = false
+			myMenu.ts.sac = false
 		end
 	end	
 	if not is_MMA and is_SAC then
-		if Menu.ts.sac then
-			Menu.ts.ts = false
+		if myMenu.ts.sac then
+			myMenu.ts.ts = false
 		else
-			Menu.ts.ts = true
+			myMenu.ts.ts = true
 		end	
 	end
 	if is_MMA and not is_SAC then
-		if Menu.ts.mma then
-			Menu.ts.ts = false
+		if myMenu.ts.mma then
+			myMenu.ts.ts = false
 		else
-			Menu.ts.ts = true
+			myMenu.ts.ts = true
 		end	
 	end
 	if not is_MMA and not is_SAC then
-		Menu.ts.ts = true	
+		myMenu.ts.ts = true	
 	end		
 	if _G.MMA_Target and _G.MMA_Target.type == myHero.type then
 		return _G.MMA_Target 
@@ -232,32 +231,33 @@ end
 
 --Bilbao
 function autoLevelSkills()
-	if not myMenu.misc.lvlSkill.enable then return end
-	if myHero.level > spellLevel then
-		spellLevel = spellLevel + 1
-		if myMenu.misc.lvlSkill.skillOrder == 1 then			
-			LevelSpell(_R)
-			LevelSpell(_W)
-			LevelSpell(_Q)
-			LevelSpell(_E)
-		end
-		if myMenu.misc.lvlSkill.skillOrder == 2 then	
-			LevelSpell(_R)
-			LevelSpell(_Q)
-			LevelSpell(_W)
-			LevelSpell(_E)
-		end
-		if myMenu.misc.lvlSkill.skillOrder == 3 then	
-			LevelSpell(_R)
-			LevelSpell(_E)
-			LevelSpell(_W)
-			LevelSpell(_Q)
-		end
-		if myMenu.misc.lvlSkill.skillOrder == 4 then	
-			LevelSpell(_R)
-			LevelSpell(_E)
-			LevelSpell(_Q)
-			LevelSpell(_W)
+	if myMenu.misc.lvlSkill.enable then
+		if myHero.level > spellLevel then
+			spellLevel = spellLevel + 1
+			if myMenu.misc.lvlSkill.skillOrder == 1 then			
+				LevelSpell(_R)
+				LevelSpell(_W)
+				LevelSpell(_Q)
+				LevelSpell(_E)
+			end
+			if myMenu.misc.lvlSkill.skillOrder == 2 then	
+				LevelSpell(_R)
+				LevelSpell(_Q)
+				LevelSpell(_W)
+				LevelSpell(_E)
+			end
+			if myMenu.misc.lvlSkill.skillOrder == 3 then	
+				LevelSpell(_R)
+				LevelSpell(_E)
+				LevelSpell(_W)
+				LevelSpell(_Q)
+			end
+			if myMenu.misc.lvlSkill.skillOrder == 4 then	
+				LevelSpell(_R)
+				LevelSpell(_E)
+				LevelSpell(_Q)
+				LevelSpell(_W)
+			end
 		end
 	end
 end
@@ -332,7 +332,6 @@ function Combo(unit)
 	end	
 end
 
-
 function castW(unit)
 	if ValidTarget(unit, wRange) and wReady then
 		local CastPosition, HitChance, Position = VP:GetLineCastPosition(unit, wDelay, wWidth, wRange, wSpeed, myHero, false)
@@ -359,21 +358,11 @@ function drawRanges()
 		DrawCircle(myHero.x, myHero.y, myHero.z, rRange, ARGB(75 , 185, 185, 185))
 	end
 	if myMenu.drawing.drawAA then
-		DrawCircle(myHero.x, myHero.y, myHero.z, myHero.range + 50, ARGB(55 , 150, 150, 150))
+		DrawCircle(myHero.x, myHero.y, myHero.z, myHero.range + myHero.minBBox, ARGB(55 , 150, 150, 150))
 	end
 end
 
-function SkinHack()
-	if myMenu.misc.skinChanger.enable and skin ~= myMenu.misc.skinChanger.enable.skinNo then
-		local changeSkin = { [1] = 7, [2] = 1, [3] = 2, [4] = 3, [5] = 4, [6] = 5, [7] = 6 }
-		skin = myMenu.misc.skinChanger.skinNo
-		SkinChanger(myHero.charName, changeSkin[skin])
-	end
-end
-
-
---shalzuth
-function SkinChanger(champ, id)
+function SkinChanger(champ, skinId)
     p = CLoLPacket(0x97)
     p:EncodeF(myHero.networkID)
     p.pos = 1
@@ -386,7 +375,7 @@ function SkinChanger(champ, id)
     p:Encode1(t3)
     p:Encode1(bit32.band(t4,0xB))
     p:Encode1(1)
-    p:Encode4(id)
+    p:Encode4(skinId)
     for i = 1, #champ do
         p:Encode1(string.byte(champ:sub(i,i)))
     end
@@ -395,4 +384,12 @@ function SkinChanger(champ, id)
     end
     p:Hide()
     RecvPacket(p)
+end
+	
+function SkinHack()
+	if myMenu.misc.skinChanger.SkinHack and CurSkin ~= myMenu.misc.skinChanger.skin then
+		local SkinIdSwap = { [1] = 0, [2] = 1, [3] = 2, [4] = 3, [5] = 4, [6] = 5, [7] = 6, [8] = 7, [9] = 8 }
+		CurSkin = myMenu.misc.skinChanger.skin
+		SkinChanger(myHero.charName, SkinIdSwap[CurSkin])
+	end
 end
