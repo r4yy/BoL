@@ -1,6 +1,21 @@
 if myHero.charName ~= "Annie" then return end
 
-local sversion = "0.21"
+--[[
+		Author: r4yy aka l0ST
+		Features: 	  - different combo modes
+				  - features SAC, MMA, SOW, SxOW
+				  - different auto level modes
+				  - currently only VPRE
+				  - auto update scripts
+				  - SkinHack for VIPs (works only if you have VIP sorry =/)
+		
+		Credits:  	  - Fantastik for beeing patient and answering my questions 
+				  - Bilbao got some code parts from him
+				  - shalzuth for the SkinHack
+--]]
+
+
+local sversion = "0.1"
 local scriptName = "RedCapAnnie"
 local AUTOUPDATE = true
 local UPDATE_HOST = "raw.github.com"
@@ -71,7 +86,8 @@ local qDelay, wDelay, rDelay = 0.25, 0.25, 0.25
 local qSpeed, wSpeed, rSpeed = 1400, math.huge, math.huge
 local qReady, wReady, rReady = false, false, false
 
-local spellLevel = 0
+local spellLevel = 0,
+local skin = nil
 
 --> Ow Data 
 local VP = nil
@@ -79,7 +95,6 @@ local VP = nil
 local MMAandSAC = false
 local isMMA, isSAC, isSOW, isSxOW = false, false, false, false
 ----------------------------------------------------
-
 
 
 --> Target Data
@@ -90,7 +105,8 @@ local target = nil
 
 
 function OnLoad()
-	VP = VPrediction()	
+	VP = VPrediction()
+	SOWi = SOW(VP)
 	Menu()
 	Ts()
 	PrintChat("<font color='#e62519'> >> "..scriptName.." v."..sversion.." by r4yy loaded!</font>")	
@@ -105,15 +121,17 @@ function OnTick()
 end
 
 function OnDraw()
+	if myHero.dead then return end
 	drawRanges()
 end
 
 function Menu()
 	myMenu = scriptConfig("Red Cap Annie", "annie")
 	
+	if not isSac and not isMMa and not isSxOW then
 	myMenu:addSubMenu("Orbwalking", "Orbwalking")
-		SOW:LoadToMenu(myMenu.Orbwalking)
-	
+		SOWi:LoadToMenu(myMenu.Orbwalking)
+	end
 	myMenu:addSubMenu("Target selector", "ts")
 
 	myMenu:addSubMenu("Annie - Combo Settings", "combo")
@@ -123,7 +141,6 @@ function Menu()
 		myMenu.combo:addParam("comboMode", "Combo Mode", SCRIPT_PARAM_LIST, 1, { "QWR", "WQR", "RWQ", "RQW"})
 		myMenu.combo:addParam("comboItems", "Use Items in Combo", SCRIPT_PARAM_ONOFF, false)
 		myMenu.combo:addParam("useCombo", "Combo!", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
-		myMenu.combo:addParam("flashUlt", "Flash R!", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("A"))
 		
 	myMenu:addSubMenu("Annie - Harass Settings", "harass")
 		myMenu.harass:addParam("useQ", "Use Q in Harass", SCRIPT_PARAM_ONOFF, false)
@@ -131,11 +148,11 @@ function Menu()
 		myMenu.harass:addParam("manaCheck", "Don't harass if Mana < %", SCRIPT_PARAM_SLICE, 0, 0, 100)
 		myMenu.harass:addParam("useHarass", "Harass!", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
 		
-	myMenu:addSubMenu("Annie - Farm Settings", "farm")
-		myMenu.farm:addParam("farmQ",  "Use Q", SCRIPT_PARAM_ONOFF, false)   
-		myMenu.farm:addParam("EnergyCheck", "Don't farm if Energy < %", SCRIPT_PARAM_SLICE, 0, 0, 100)
-		myMenu.farm:addParam("Freeze", "Farm freezing", SCRIPT_PARAM_ONKEYDOWN, false,   string.byte("C"))
-		myMenu.farm:addParam("LaneClear", "Farm LaneClear", SCRIPT_PARAM_ONKEYDOWN, false,   string.byte("V"))
+	myMenu:addSubMenu("Annie - Farm Settings", "qFarm")
+		myMenu.qFarm:addParam("farmQ",  "Use Q", SCRIPT_PARAM_ONOFF, false)   
+		myMenu.qFarm:addParam("manaCheck", "Don't farm if mana < %", SCRIPT_PARAM_SLICE, 0, 0, 100)
+		myMenu.qFarm:addParam("onKey", "Farm on key", SCRIPT_PARAM_ONKEYDOWN, false,   string.byte("A"))
+		myMenu.qFarm:addParam("onToggle", "Farm on toggle", SCRIPT_PARAM_ONKEYTOGGLE, false,   string.byte("K"))
 		
 	myMenu:addSubMenu("Annie - Draw Settings", "drawing")
 		myMenu.drawing:addParam("drawQ", "Draw Circle Q/W", SCRIPT_PARAM_ONOFF, false)
@@ -143,12 +160,18 @@ function Menu()
 		myMenu.drawing:addParam("drawAA", "Draw Circle AA", SCRIPT_PARAM_ONOFF, false)
 		
 	myMenu:addSubMenu("Annie - Misc Settings", "misc")
+		myMenu.misc:addSubMenu("Auto charge stun", "chargeStun")
+			myMenu.misc.chargeStun:addParam("chargeW", "Charge stun with W"), SCRIPT_PARAM_ONOFF, false)
+			myMenu.misc.chargeStun:addParam("chargeE", "Charge stun with E"), SCRIPT_PARAM_ONOFF, false)
+			myMenu.misc.chargeStun:addParam("enable", "Charge stun"), SCRIPT_PARAM_ONFOFF, false)
 		myMenu.misc:addSubMenu("Auto level spells", "lvlSkill")
-		myMenu.misc.lvlSkill:addParam("enable", "Auto Level Skills", SCRIPT_PARAM_ONOFF, false)
-		myMenu.misc.lvlSkill:addParam("skillOrder", "Order", SCRIPT_PARAM_LIST, 1, {"R>W>Q>E", "R>Q>W>E", "R>E>W>Q", "R>E>Q>W"})
-		myMenu.misc:addSubMenu("SkinChanger for VIPs", "skinChanger")
-		myMenu.misc.skinChanger:addParam("enable", "SkinChanger", SCRIPT_PARAM_ONOFF, false)		
-		myMenu.misc.skinChanger:addParam("skinNo", "Choose your model", SCRIPT_PARAM_LIST, 1, { "Classic Skin", "Goth Annie", "Red Riding Annie", "Annie in Wonderland", "Prom Queen Annie", "Frostfire Annie", "Franken Tibbers Annie", "Reverse Annie", "Panda Annie"})
+			myMenu.misc.lvlSkill:addParam("skillOrder", "Order", SCRIPT_PARAM_LIST, 1, {"R>W>Q>E", "R>Q>W>E", "R>E>W>Q", "R>E>Q>W"})
+			myMenu.misc.lvlSkill:addParam("enable", "Auto Level Skills", SCRIPT_PARAM_ONOFF, false)
+	if VIP_User then
+		myMenu.misc:addSubMenu("SkinChanger for VIPs", "skinChanger")	
+			myMenu.misc.skinChanger:addParam("skinNo", "Choose your model", SCRIPT_PARAM_LIST, 1, { "Classic Skin", "Goth Annie", "Red Riding Annie", "Annie in Wonderland", "Prom Queen Annie", "Frostfire Annie", "Franken Tibbers Annie", "Reverse Annie", "Panda Annie"})
+			myMenu.misc.skinChanger:addParam("enable", "SkinChanger", SCRIPT_PARAM_ONOFF, false)			
+	end
 end
 
 function Ts()
@@ -263,57 +286,56 @@ end
 end
 
 function Combo(unit)
-	if ValidTarget(unit) then
-		if myMenu.combo.comboMode == 1 then
-			if myMenu.combo.useQ and qReady then
-				CastSpell(_Q, unit.x, unit.z)
-			end
-			if myMenu.combo.useW then
-				castW(unit)
-			end
-			if myMenu.combo.useR then
-				castR(unit)
-			end
+	if myMenu.combo.comboMode == 1 then
+		if myMenu.combo.useQ and qReady then
+			CastSpell(_Q, unit.x, unit.z)
 		end
-		if myMenu.combo.comboMode == 2 then
-			if myMenu.combo.useW then
-				castW(unit)
-			end
-			if myMenu.combo.useQ and qReady then
-				CastSpell(_Q, unit.x, unit.z)
-			end
-			if myMenu.combo.useR then
-				castR(unit)
-			end
+		if myMenu.combo.useW then
+			castW(unit)
 		end
-		if myMenu.combo.comboMode == 3 then
-			if myMenu.combo.useR then
-				castR(unit)
-			end
-			if myMenu.combo.useW then
-				castW(unit)
-			end
-			if myMenu.combo.useQ and qReady then
-				CastSpell(_Q, unit.x, unit.z)
-			end
+		if myMenu.combo.useR then
+			castR(unit)
 		end
-		if myMenu.combo.comboMode == 4 then
-			if myMenu.combo.useR then
-				castR(unit)
-			end
-			if myMenu.combo.useQ and qReady then
-				CastSpell(_Q, unit.x, unit.z)
-			end
-			if myMenu.combo.useW then
-				castW(unit)
-			end
-		end	
 	end
+	if myMenu.combo.comboMode == 2 then
+		if myMenu.combo.useW then
+			castW(unit)
+		end
+		if myMenu.combo.useQ and qReady then
+			CastSpell(_Q, unit.x, unit.z)
+		end
+		if myMenu.combo.useR then
+			castR(unit)
+		end
+	end
+	if myMenu.combo.comboMode == 3 then
+		if myMenu.combo.useR then
+			castR(unit)
+		end
+		if myMenu.combo.useW then
+			castW(unit)
+		end
+		if myMenu.combo.useQ and qReady then
+			CastSpell(_Q, unit.x, unit.z)
+		end
+	end
+	if myMenu.combo.comboMode == 4 then
+		if myMenu.combo.useR then
+			castR(unit)
+		end
+		if myMenu.combo.useQ and qReady then
+			CastSpell(_Q, unit.x, unit.z)
+		end
+		if myMenu.combo.useW then
+			castW(unit)
+		end
+	end	
 end
 
+
 function castW(unit)
-	if GetDistance(unit) <= wRange and wReady then
-		local CastPosition,  HitChance,  Position = VP:GetLineCastPosition(myHero, wDelay, wWidth, wRange, wSpeed, myHero, false)
+	if ValidTarget(unit, wRange) and wReady then
+		local CastPosition, HitChance, Position = VP:GetLineCastPosition(unit, wDelay, wWidth, wRange, wSpeed, myHero, false)
 			if HitChance >= 2 then 
 				CastSpell(_W, CastPosition.x, CastPosition.z)
 			end
@@ -321,7 +343,7 @@ function castW(unit)
 end		
 				
 function castR(unit)
-	if GetDistance(unit) <= rRange and rReady then
+	if ValidTarget(unit, rRange) and rReady then
 		local AOECastPosition,  MainTargetHitChance, nTargets = VP:GetCircularAOECastPosition(unit, rDelay, rWidth, rRange, rSpeed, myHero)
 			if MainTargetHitChance >= 2 then 
 				CastSpell(_R, AOECastPosition.x, AOECastPosition.z)
@@ -330,13 +352,47 @@ function castR(unit)
 end
 
 function drawRanges()
-	if myMenu.drawing.drawQ then
+	if myMenu.drawing.drawQ and qReady or wReady then
 		DrawCircle(myHero.x, myHero.y, myHero.z, qRange, ARGB(35 , 105, 105, 105))
 	end
-	if myMenu.drawing.drawR then
+	if myMenu.drawing.drawR and rReady then
 		DrawCircle(myHero.x, myHero.y, myHero.z, rRange, ARGB(75 , 185, 185, 185))
 	end
 	if myMenu.drawing.drawAA then
-		DrawCircle(myHero.x, myHero.y, myHero.z, myHero.range, ARGB(55 , 150, 150, 150))
+		DrawCircle(myHero.x, myHero.y, myHero.z, myHero.range + 50, ARGB(55 , 150, 150, 150))
 	end
+end
+
+function SkinHack()
+	if myMenu.misc.skinChanger.enable and skin ~= myMenu.misc.skinChanger.enable.skinNo then
+		local changeSkin = { [1] = 7, [2] = 1, [3] = 2, [4] = 3, [5] = 4, [6] = 5, [7] = 6 }
+		skin = myMenu.misc.skinChanger.skinNo
+		SkinChanger(myHero.charName, changeSkin[skin])
+	end
+end
+
+
+--shalzuth
+function SkinChanger(champ, id)
+    p = CLoLPacket(0x97)
+    p:EncodeF(myHero.networkID)
+    p.pos = 1
+    t1 = p:Decode1()
+    t2 = p:Decode1()
+    t3 = p:Decode1()
+    t4 = p:Decode1()
+    p:Encode1(t1)
+    p:Encode1(t2)
+    p:Encode1(t3)
+    p:Encode1(bit32.band(t4,0xB))
+    p:Encode1(1)
+    p:Encode4(id)
+    for i = 1, #champ do
+        p:Encode1(string.byte(champ:sub(i,i)))
+    end
+    for i = #champ + 1, 64 do
+        p:Encode1(0)
+    end
+    p:Hide()
+    RecvPacket(p)
 end
