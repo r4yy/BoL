@@ -15,7 +15,7 @@ if myHero.charName ~= "Annie" then return end
 --]]
 
 
-local sversion = "0.1"
+local sversion = "0.11"
 local scriptName = "RedCapAnnie"
 local AUTOUPDATE = true
 local UPDATE_HOST = "raw.github.com"
@@ -388,7 +388,7 @@ end
 	
 function SkinHack()
 	if myMenu.misc.skinChanger.SkinHack and CurSkin ~= myMenu.misc.skinChanger.skin then
-		local SkinIdSwap = { [1] = 0, [2] = 1, [3] = 2, [4] = 3, [5] = 4, [6] = 5, [7] = 6, [8] = 7, [9] = 8 }
+		local SkinIdSwap = { [1] = 9, [2] = 1, [3] = 2, [4] = 3, [5] = 4, [6] = 5, [7] = 6, [8] = 7, [9] = 8 }
 		CurSkin = myMenu.misc.skinChanger.skin
 		SkinChanger(myHero.charName, SkinIdSwap[CurSkin])
 	end
