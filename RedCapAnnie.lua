@@ -156,8 +156,9 @@ function Menu()
 		myMenu.qFarm:addParam("onToggle", "Farm on toggle", SCRIPT_PARAM_ONKEYTOGGLE, false,   string.byte("K"))
 		
 	myMenu:addSubMenu("Annie - Draw Settings", "drawing")
-		myMenu.drawing:addParam("drawQ", "Draw Circle Q/W", SCRIPT_PARAM_ONOFF, false)
+		myMenu.drawing:addParam("drawQ", "Draw Circle Q", SCRIPT_PARAM_ONOFF, false)
 		myMenu.drawing:addParam("drawR", "Draw Circle R", SCRIPT_PARAM_ONOFF, false)
+		myMenu.drawing:addParam("drawW", "Draw Circle W", SCRIPT_PARAM_ONOFF, false)
 		myMenu.drawing:addParam("drawAA", "Draw Circle AA", SCRIPT_PARAM_ONOFF, false)
 		
 	myMenu:addSubMenu("Annie - Misc Settings", "misc")
@@ -180,7 +181,7 @@ function Ts()
 end
 
 function Checks()
-	--ts:update()
+	ts:update()
 	qReady = (myHero:CanUseSpell(_Q) == READY)
     wReady = (myHero:CanUseSpell(_W) == READY)
     rReady = (myHero:CanUseSpell(_R) == READY)
@@ -351,14 +352,17 @@ function castR(unit)
 end
 
 function drawRanges()
-	if myMenu.drawing.drawQ and qReady or wReady then
+	if myMenu.drawing.drawQ and qReady then
+		DrawCircle(myHero.x, myHero.y, myHero.z, qRange, ARGB(35 , 105, 105, 105))
+	end
+	if myMenu.drawing.drawW and wReady then
 		DrawCircle(myHero.x, myHero.y, myHero.z, qRange, ARGB(35 , 105, 105, 105))
 	end
 	if myMenu.drawing.drawR and rReady then
 		DrawCircle(myHero.x, myHero.y, myHero.z, rRange, ARGB(75 , 185, 185, 185))
 	end
 	if myMenu.drawing.drawAA then
-		DrawCircle(myHero.x, myHero.y, myHero.z, myHero.range + myHero.minBBox, ARGB(55 , 150, 150, 150))
+		DrawCircle(myHero.x, myHero.y, myHero.z, SOWi:DrawAARange(), ARGB(55 , 150, 150, 150))
 	end
 end
 
