@@ -9,14 +9,13 @@ if myHero.charName ~= "Annie" then return end
 				  - auto update scripts
 				  - SkinHack for VIPs (works only if you have VIP sorry =/)
 		
-		Credits:  	  - Fantastik for beeing patient and answering my questions 
-				  - Bilbao got some code parts from him
+		Credits:  	  - Fantastik for answering so many questions 
 				  - shalzuth for the SkinHack
 --]]
 
 
-local sversion = "0.11"
-local scriptName = "RedCapAnnie"
+local sversion = "0.1"
+local scriptName = "LittleRedRidingHood"
 local AUTOUPDATE = true
 local UPDATE_HOST = "raw.github.com"
 local UPDATE_PATH = "/r4yy/BoL/master/"..scriptName..".lua".."?rand="..math.random(1,10000)
@@ -47,11 +46,18 @@ local REQUIRED_LIBS =
 	{
 		["VPrediction"] = "https://raw.github.com/Hellsing/BoL/master/common/VPrediction.lua",
 		["SOW"] = "https://raw.github.com/Hellsing/BoL/master/common/SOW.lua",
+		["SxOrbWalk"]	= "https://raw.githubusercontent.com/Superx321/BoL/master/common/SxOrbWalk.lua",
 --		if VIP_USER then ["Prodiction"] = "https://bitbucket.org/Klokje/public-klokjes-bol-scripts/raw/7f8427d943e993667acd4a51a39cf9aa2b71f222/Test/Prodiction/Prodiction.lua" end,
 	}		
 local DOWNLOADING_LIBS = false
 local DOWNLOAD_COUNT = 0
 local SELF_NAME = GetCurrentEnv() and GetCurrentEnv().FILE_NAME or ""
+
+if _G.Reborn_Loaded or _G.AutoCarry or _G.MMA_Loaded then
+	lib_Required["SxOrbWalk"] = nil
+	lib_Required["SOW"] = nil
+end
+
 
 for DOWNLOAD_LIB_NAME, DOWNLOAD_LIB_URL in pairs(REQUIRED_LIBS) do
 	if FileExist(LIB_PATH .. DOWNLOAD_LIB_NAME .. ".lua") then
@@ -77,14 +83,16 @@ end
 if DOWNLOADING_LIBS then return end
 --
 
-
-
 --> Char Data 
-local qRange, wRange, rRange = 625, 625, 600
+local qRange, wRange, rRange = 625, 610, 600
 local qWidth, wWidth, rWidth = -1, 50*math.pi/180, 250
 local qDelay, wDelay, rDelay = 0.25, 0.25, 0.25
 local qSpeed, wSpeed, rSpeed = 1400, math.huge, math.huge
-local qReady, wReady, rReady = false, false, false
+local qReady, wReady, eReady, rReady = false, false, false
+local igniteReady, ignite, igniteDamage = false, nil, 0
+local flashReady, flash = false, nil
+local stunReady, tibbersReady = false
+local recallBuff = false
 
 local spellLevel = 0
 local lastSkin = 0
@@ -100,27 +108,41 @@ local isMMA, isSAC, isSOW, isSxOW = false, false, false, false
 --> Target Data
 local ts = nil
 local target = nil
+local ts = TargetSelector(TARGET_LESS_CAST_PRIORITY, qRange)
+local mm = nil
 --------------------------------------<
-
-
 
 function OnLoad()
 	VP = VPrediction()
 	SOWi = SOW(VP)
+	SxSOW = SxOrbWalk()
 	Menu()
-	Ts()
+	mm = minionManager(MINION_ALL, qRange)
+	sumCheck()
 	PrintChat("<font color='#e62519'> >> "..scriptName.." v."..sversion.." by r4yy loaded!</font>")	
 end
-
 function OnTick()
 	if myHero.dead then return end
+	target = ts.target
 	Checks()
 	SkinHack()
 	if myMenu.combo.useCombo then
-		Combo(target)
+		Combo()
+	end
+	if myMenu.harass.useHarass then
+		Harass()
+	end
+	if myMenu.qFarm.farmQ and
+		myMenu.qFarm.onKey or myMenu.qFarm.onToggle then
+			FarmQ()
+	end	
+	if myMenu.misc.chargeStun.enable then
+		Charge()
+	end
+	if myMenu.misc.Ignite.enable then 
+		autoIgnite()
 	end
 end
-
 function OnDraw()
 	if myHero.dead then return end
 	drawRanges()
@@ -129,18 +151,19 @@ end
 function Menu()
 	myMenu = scriptConfig("Red Cap Annie", "annie")
 	
-	if not isSac and not isMMa and not isSxOW then
-	myMenu:addSubMenu("Orbwalking", "Orbwalking")
-		SOWi:LoadToMenu(myMenu.Orbwalking)
-	end
+	myMenu:addSubMenu("SOW", "SOW")
+		SOWi:LoadToMenu(myMenu.SOW)
+	myMenu:addSubMenu("SxSOW", "SxSOW")
+		SxSOW:LoadToMenu(myMenu.SxSOW)
 	myMenu:addSubMenu("Target selector", "ts")
+	ts.name = "Target"
+	myMenu.ts:addTS(ts)
 
 	myMenu:addSubMenu("Annie - Combo Settings", "combo")
 		myMenu.combo:addParam("useQ", "Use Q in Combo", SCRIPT_PARAM_ONOFF, false)
 		myMenu.combo:addParam("useW", "Use W in Combo", SCRIPT_PARAM_ONOFF, false)
 		myMenu.combo:addParam("useR", "Use R in Combo", SCRIPT_PARAM_ONOFF, false)
 		myMenu.combo:addParam("comboMode", "Combo Mode", SCRIPT_PARAM_LIST, 1, { "QWR", "WQR", "RWQ", "RQW"})
-		myMenu.combo:addParam("comboItems", "Use Items in Combo", SCRIPT_PARAM_ONOFF, false)
 		myMenu.combo:addParam("useCombo", "Combo!", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
 		
 	myMenu:addSubMenu("Annie - Harass Settings", "harass")
@@ -150,8 +173,7 @@ function Menu()
 		myMenu.harass:addParam("useHarass", "Harass!", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
 		
 	myMenu:addSubMenu("Annie - Farm Settings", "qFarm")
-		myMenu.qFarm:addParam("farmQ",  "Use Q", SCRIPT_PARAM_ONOFF, false)   
-		myMenu.qFarm:addParam("manaCheck", "Don't farm if mana < %", SCRIPT_PARAM_SLICE, 0, 0, 100)
+		myMenu.qFarm:addParam("farmQ",  "Auto farm with Q", SCRIPT_PARAM_ONOFF, false)   
 		myMenu.qFarm:addParam("onKey", "Farm on key", SCRIPT_PARAM_ONKEYDOWN, false,   string.byte("A"))
 		myMenu.qFarm:addParam("onToggle", "Farm on toggle", SCRIPT_PARAM_ONKEYTOGGLE, false,   string.byte("K"))
 		
@@ -168,69 +190,30 @@ function Menu()
 			myMenu.misc.chargeStun:addParam("enable", "Charge stun", SCRIPT_PARAM_ONOFF, false)
 		myMenu.misc:addSubMenu("Auto level spells", "lvlSkill")
 			myMenu.misc.lvlSkill:addParam("skillOrder", "Order", SCRIPT_PARAM_LIST, 1, {"R>W>Q>E", "R>Q>W>E", "R>E>W>Q", "R>E>Q>W"})
-			myMenu.misc.lvlSkill:addParam("enable", "Enable SkinChanger", SCRIPT_PARAM_ONOFF, false)
+			myMenu.misc.lvlSkill:addParam("enable", "Enable autolevel", SCRIPT_PARAM_ONOFF, false)
 		myMenu.misc:addSubMenu("SkinChanger", "skinChanger")
 			myMenu.misc.skinChanger:addParam("SkinHack","Use Skin Hack", SCRIPT_PARAM_ONOFF, false)
 			myMenu.misc.skinChanger:addParam("skin", "Skin Hack by Shalzuth:", SCRIPT_PARAM_LIST, 1, { "Classic", "Goth Annie", "Red Riding Annie", "Annie in Wonderland", "Prom Queen Annie", "Frostfire Annie", "Reverse Annie", "Franken Tibbers Annie", "Panda Annie"})
-end
-
-function Ts()
-	ts = TargetSelector(TARGET_LESS_CAST_PRIORITY, qRange)
-	ts.name = "Annie"
-	myMenu.ts:addTS(ts)
+		myMenu.misc:addSubMenu("Auto Ignite ", "Ignite")
+			myMenu.misc.Ignite:addParam("enable", "Use auto ignite to finish enemy", SCRIPT_PARAM_ONOFF, false)
 end
 
 function Checks()
 	ts:update()
+	mm:update()
 	qReady = (myHero:CanUseSpell(_Q) == READY)
     wReady = (myHero:CanUseSpell(_W) == READY)
+	eReady = (myHero:CanUseSpell(_E) == READY)
     rReady = (myHero:CanUseSpell(_R) == READY)
-	target = owTarget()
+	if ignite ~= nil then
+		igniteReady = (myHero:CanUseSpell(ignite) == READY)
+	end
+	if flash ~= nil then
+		flashReady = (myHero:CanUseSpell(flash) == READY)
+	end
+	igniteDamage = 50 + (20 * myHero.level)
 	autoLevelSkills()
-	checkOW()
 end
---Bilbao
-function owTarget()
-if not MMAandSAC then return end
-	if is_MMA and is_SAC then		
-		if myMenu.ts.mma then
-			myMenu.ts.sac = false
-			myMenu.ts.ts = false
-		elseif myMenu.ts.sac then
-			myMenu.ts.mma = false
-			myMenu.ts.ts = false
-		elseif	myMenu.ts.ts then
-			myMenu.ts.mma = false
-			myMenu.ts.sac = false
-		end
-	end	
-	if not is_MMA and is_SAC then
-		if myMenu.ts.sac then
-			myMenu.ts.ts = false
-		else
-			myMenu.ts.ts = true
-		end	
-	end
-	if is_MMA and not is_SAC then
-		if myMenu.ts.mma then
-			myMenu.ts.ts = false
-		else
-			myMenu.ts.ts = true
-		end	
-	end
-	if not is_MMA and not is_SAC then
-		myMenu.ts.ts = true	
-	end		
-	if _G.MMA_Target and _G.MMA_Target.type == myHero.type then
-		return _G.MMA_Target 
-	end
-    if _G.AutoCarry and _G.AutoCarry.Crosshair and _G.AutoCarry.Attack_Crosshair and _G.AutoCarry.Attack_Crosshair.target and _G.AutoCarry.Attack_Crosshair.target.type == myHero.type then
-		return _G.AutoCarry.Attack_Crosshair.target		
-	end
-    return ts.target
-end
-
---Bilbao
 function autoLevelSkills()
 	if myMenu.misc.lvlSkill.enable then
 		if myHero.level > spellLevel then
@@ -262,77 +245,116 @@ function autoLevelSkills()
 		end
 	end
 end
-
---Bilbao
-function checkOW()
-	if MMAandSAC == false then
-		if is_MMA == false and is_SAC == false then
-			if _G.AutoCarry then
-				PrintChat(""..scriptName.." Found SAC. SAC features loaded")
-				is_SAC = true
-			end	
-			if _G.MMA_Loaded then
-				PrintChat(""..scriptName.." Found MMA. MMA features loaded")
-				is_MMA = true
-			end	
-		end 
-		if is_MMA then
-			myMenu.ts:addParam("mma", "Use MMA Target Selector", SCRIPT_PARAM_ONOFF, false)
-		end 
-		if sac_menu_loaded == false and is_SAC == true then
-			myMenu.ts:addParam("sac", "Use SAC Target Selector", SCRIPT_PARAM_ONOFF, false)
-	end 
-end 
-
+function sumCheck()
+	if (myHero:GetSpellData(SUMMONER_1).name) == "summonerdot" then 
+		ignite = SUMMONER_1
+	elseif (myHero:GetSpellData(SUMMONER_2).name) == "summonerdot" then 
+		ignite = SUMMONER_2
+	else return
+	
+	end
+	
+	if (myHero:GetSpellData(SUMMONER_1).name) == "summonerflash" then 
+		flash = SUMMONER_1
+	elseif (myHero:GetSpellData(SUMMONER_2).name) == "summonerflash" then 
+		flash = SUMMONER_2
+	else return
+	
+	end
 end
 
-function Combo(unit)
+function Combo()
 	if myMenu.combo.comboMode == 1 then
-		if myMenu.combo.useQ and qReady then
-			CastSpell(_Q, unit.x, unit.z)
+		if myMenu.combo.useQ then
+			castQ(target)
 		end
 		if myMenu.combo.useW then
-			castW(unit)
+			castW(target)
 		end
 		if myMenu.combo.useR then
-			castR(unit)
+			castR(target)
 		end
 	end
 	if myMenu.combo.comboMode == 2 then
 		if myMenu.combo.useW then
-			castW(unit)
+			castW(target)
 		end
-		if myMenu.combo.useQ and qReady then
-			CastSpell(_Q, unit.x, unit.z)
+		if myMenu.combo.useQ then
+			castQ(target)
 		end
 		if myMenu.combo.useR then
-			castR(unit)
+			castR(target)
 		end
 	end
 	if myMenu.combo.comboMode == 3 then
 		if myMenu.combo.useR then
-			castR(unit)
+			castR(target)
 		end
 		if myMenu.combo.useW then
-			castW(unit)
+			castW(target)
 		end
-		if myMenu.combo.useQ and qReady then
-			CastSpell(_Q, unit.x, unit.z)
+		if myMenu.combo.useQ then
+			castQ(target)
 		end
 	end
 	if myMenu.combo.comboMode == 4 then
 		if myMenu.combo.useR then
-			castR(unit)
+			castR(target)
 		end
-		if myMenu.combo.useQ and qReady then
-			CastSpell(_Q, unit.x, unit.z)
+		if myMenu.combo.useQ then
+			castQ(target)
 		end
 		if myMenu.combo.useW then
-			castW(unit)
+			castW(target)
 		end
 	end	
 end
+function Harass()
+	if (myHero.mana / myHero.maxMana) * 100 > myMenu.harass.manaCheck then
+		if myMenu.harass.useQ then
+			castQ(target)
+		end
+		if myMenu.harass.useW then
+			castW(target)
+		end
+	end
+end
+function Charge()
+	if not stunReady and not Recalling() then
+		if myMenu.misc.chargeStun.chargeW and wReady then
+			CastSpell(_W, myHero.x, myHero.z)
+		end
+	
+		if myMenu.misc.chargeStun.chargeE and eReady then
+			CastSpell(_E)
+		end
+	end
+end
+function autoIgnite()
+	if ignite ~= nil and igniteReady and ValidTarget(target) and target.health < igniteDamage then
+		CastSpell(ignite, target)
+	end
+end
 
+function FarmQ()
+	if not myMenu.qFarm.farmQ or Recalling() then return end
+	if myMenu.qFarm.onKey or myMenu.qFarm.onToggle then
+		FarmQ_()
+	end
+end
+function FarmQ_()
+	for i, minion in pairs(mm.objects) do
+		if minion ~= nil and minion.valid and minion.team ~= myHero.team and not minion.dead and minion.visible and minion.health < getDmg("Q", minion, myHero) then
+			castQ(minion)
+		end
+	end
+end
+
+function castQ(unit)
+	if ValidTarget(unit, qRange) and qReady then
+		CastSpell(_Q, unit)
+	end
+end
 function castW(unit)
 	if ValidTarget(unit, wRange) and wReady then
 		local CastPosition, HitChance, Position = VP:GetLineCastPosition(unit, wDelay, wWidth, wRange, wSpeed, myHero, false)
@@ -340,8 +362,7 @@ function castW(unit)
 				CastSpell(_W, CastPosition.x, CastPosition.z)
 			end
 	end
-end		
-				
+end						
 function castR(unit)
 	if ValidTarget(unit, rRange) and rReady then
 		local AOECastPosition,  MainTargetHitChance, nTargets = VP:GetCircularAOECastPosition(unit, rDelay, rWidth, rRange, rSpeed, myHero)
@@ -351,18 +372,29 @@ function castR(unit)
 	end
 end
 
-function drawRanges()
-	if myMenu.drawing.drawQ and qReady then
-		DrawCircle(myHero.x, myHero.y, myHero.z, qRange, ARGB(35 , 105, 105, 105))
+function Recalling()
+  for i = 1, myHero.buffCount do --iterates through your heroes buff's, buffCount=64
+    recallBuff = myHero:getBuff(i) --Get's the buff contained in the buff table from the current iteration
+    if recallBuff.valid and recallBuff.name:lower():find('recall') then --you must check for validity as the buff will remain in the table until replaced
+      return true
+    end	
+  end
+  return false
+end
+function OnCreateObj(object)
+	if object.name:lower():find("stunready") then
+		stunReady = true
 	end
-	if myMenu.drawing.drawW and wReady then
-		DrawCircle(myHero.x, myHero.y, myHero.z, qRange, ARGB(35 , 105, 105, 105))
+	if object.name == "BearFire_foot.troy" then 
+		tibbersReady = true
 	end
-	if myMenu.drawing.drawR and rReady then
-		DrawCircle(myHero.x, myHero.y, myHero.z, rRange, ARGB(75 , 185, 185, 185))
+end
+function OnDeleteObj(object)
+	if object.name:lower():find("stunready") then
+		stunReady = false
 	end
-	if myMenu.drawing.drawAA then
-		DrawCircle(myHero.x, myHero.y, myHero.z, SOWi:DrawAARange(), ARGB(55 , 150, 150, 150))
+	if object.name == "BearFire_foot.troy" then 
+		tibbersReady = false
 	end
 end
 
@@ -389,11 +421,26 @@ function SkinChanger(champ, skinId)
     p:Hide()
     RecvPacket(p)
 end
-	
 function SkinHack()
 	if myMenu.misc.skinChanger.SkinHack and CurSkin ~= myMenu.misc.skinChanger.skin then
 		local SkinIdSwap = { [1] = 9, [2] = 1, [3] = 2, [4] = 3, [5] = 4, [6] = 5, [7] = 6, [8] = 7, [9] = 8 }
 		CurSkin = myMenu.misc.skinChanger.skin
 		SkinChanger(myHero.charName, SkinIdSwap[CurSkin])
+	end
+end
+
+function drawRanges()
+	if myMenu.drawing.drawQ and qReady then
+		DrawCircle(myHero.x, myHero.y, myHero.z, qRange, ARGB(35 , 105, 105, 105))
+	end
+	if myMenu.drawing.drawW and wReady then
+		DrawCircle(myHero.x, myHero.y, myHero.z, qRange, ARGB(35 , 105, 105, 105))
+	end
+	if myMenu.drawing.drawR and rReady then
+		DrawCircle(myHero.x, myHero.y, myHero.z, rRange, ARGB(75 , 185, 185, 185))
+	end
+	if myMenu.drawing.drawAA then
+		DrawCircle(myHero.x, myHero.y, myHero.z, 625 + 105, ARGB(125, 255, 0, 0))
+		--SOWi:DrawAARange(2, ARGB(125, 255, 0, 0))
 	end
 end
