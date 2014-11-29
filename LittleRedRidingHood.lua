@@ -53,12 +53,6 @@ local DOWNLOADING_LIBS = false
 local DOWNLOAD_COUNT = 0
 local SELF_NAME = GetCurrentEnv() and GetCurrentEnv().FILE_NAME or ""
 
-if _G.Reborn_Loaded or _G.AutoCarry or _G.MMA_Loaded then
-	lib_Required["SxOrbWalk"] = nil
-	lib_Required["SOW"] = nil
-end
-
-
 for DOWNLOAD_LIB_NAME, DOWNLOAD_LIB_URL in pairs(REQUIRED_LIBS) do
 	if FileExist(LIB_PATH .. DOWNLOAD_LIB_NAME .. ".lua") then
 		require(DOWNLOAD_LIB_NAME)
