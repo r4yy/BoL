@@ -1,0 +1,412 @@
+if myHero.charName ~= "Anivia" then return end
+
+local sversion = "0.1"
+local scriptName = "Articuno - Control the Ice"
+local AUTOUPDATE = true
+local UPDATE_HOST = "raw.github.com"
+local UPDATE_PATH = "/r4yy/BoL/master/"..scriptName..".lua".."?rand="..math.random(1,10000)
+local UPDATE_FILE_PATH = SCRIPT_PATH..GetCurrentEnv().FILE_NAME
+local UPDATE_URL = "https://"..UPDATE_HOST..UPDATE_PATH
+
+--Fantastik
+function AutoupdaterMsg(msg) print("<font color=\"#6699ff\"><b>"..scriptName..":</b></font> <font color=\"#FFFFFF\">"..msg..".</font>") end
+if AUTOUPDATE then
+	local ServerData = GetWebResult(UPDATE_HOST, "/r4yy/BoL/master/version/"..scriptName..".version")
+	if ServerData then
+		ServerVersion = type(tonumber(ServerData)) == "number" and tonumber(ServerData) or nil
+		if ServerVersion then
+			if tonumber(sversion) < ServerVersion then
+				AutoupdaterMsg("New version available"..ServerVersion)
+				AutoupdaterMsg("Updating, please don't press F9")
+				DelayAction(function() DownloadFile(UPDATE_URL, UPDATE_FILE_PATH, function () AutoupdaterMsg("Successfully updated. ("..sversion.." => "..ServerVersion.."), press F9 twice to load the updated version.") end) end, 3)
+			else
+				AutoupdaterMsg("You have got the latest version ("..ServerVersion..")")
+			end
+		end
+	else
+		AutoupdaterMsg("Error downloading version info")
+	end
+end
+
+local REQUIRED_LIBS = 
+	{
+		["VPrediction"] = "https://raw.github.com/Hellsing/BoL/master/common/VPrediction.lua",
+		["SOW"] = "https://raw.github.com/Hellsing/BoL/master/common/SOW.lua",
+		["SxOrbWalk"]	= "https://raw.githubusercontent.com/Superx321/BoL/master/common/SxOrbWalk.lua",
+--		if VIP_USER then ["Prodiction"] = "https://bitbucket.org/Klokje/public-klokjes-bol-scripts/raw/7f8427d943e993667acd4a51a39cf9aa2b71f222/Test/Prodiction/Prodiction.lua" end,
+	}		
+local DOWNLOADING_LIBS = false
+local DOWNLOAD_COUNT = 0
+local SELF_NAME = GetCurrentEnv() and GetCurrentEnv().FILE_NAME or ""
+
+for DOWNLOAD_LIB_NAME, DOWNLOAD_LIB_URL in pairs(REQUIRED_LIBS) do
+	if FileExist(LIB_PATH .. DOWNLOAD_LIB_NAME .. ".lua") then
+		require(DOWNLOAD_LIB_NAME)
+	else
+		DOWNLOADING_LIBS = true
+		DOWNLOAD_COUNT = DOWNLOAD_COUNT + 1
+
+		print("<font color=\"#00FF00\">"..scriptName..":</font><font color=\"#FFDFBF\"> Not all required libraries are installed. Downloading: <b><u><font color=\"#73B9FF\">"..DOWNLOAD_LIB_NAME.."</font></u></b> now! Please don't press [F9]!</font>")
+		print("Download started")
+		DownloadFile(DOWNLOAD_LIB_URL, LIB_PATH .. DOWNLOAD_LIB_NAME..".lua", AfterDownload)
+		print("Download finished")
+	end
+end
+
+function AfterDownload()
+	DOWNLOAD_COUNT = DOWNLOAD_COUNT - 1
+	if DOWNLOAD_COUNT == 0 then
+		DOWNLOADING_LIBS = false
+		print("<font color=\"#00FF00\">"..scriptName..":</font><font color=\"#FFDFBF\"> Required libraries downloaded successfully, please reload (double [F9]).</font>")
+	end
+end
+if DOWNLOADING_LIBS then return end
+
+
+local qRange, wRange, eRange, rRange, aaRange = 1100, 1000, 650, 625, 600
+local qWidth, eWidth, rWidth = 110, 0, 400
+local wWidth1, wWidth2, wWidth3, wWidth4, wWidth5 = 400, 500, 600, 700, 800
+local qDelay, wDelay, eDelay, rDelay = 0.25, 0.25, 0.25, 0.25
+local qSpeed, wSpeed, eSpeed, rSpeed = 850, math.huge, 1200, math.huge
+local qReady, wReady, eReady, rReady = false, false, false, false
+local qObj, rObj = nil, nil
+local igniteReady, ignite, igniteDamage = false, nil, 0
+local flashReady, flash = false, nil
+local chilled = false
+
+local spellLevel = 0
+local lastSkin = 0
+
+--> Ow Data 
+local VP = nil
+
+local MMAandSAC = false
+local isMMA, isSAC, isSOW, isSxOW = false, false, false, false
+----------------------------------------------------
+
+
+--> Target Data
+local ts = nil
+local target = nil
+local ts = TargetSelector(TARGET_LESS_CAST_PRIORITY, qRange)
+--------------------------------------<
+
+function OnLoad()
+	VP = VPrediction()
+	SOWi = SOW(VP)
+	SxOrb = SxOrbWalk()
+	Menu()
+	sumCheck()
+	PrintChat("<font color='#e62519'> >> "..scriptName.." v."..sversion.." by r4yy loaded!</font>")	
+end
+function OnTick()
+	if myHero.dead then return end
+	target = ts.target
+	Checks()
+	SkinHack()
+	if myMenu.combo.useCombo then
+		Combo()
+	end
+	if myMenu.harass.useHarass then
+		Harass()
+	end
+	if myMenu.misc.Ignite.enable then 
+		autoIgnite()
+	end
+end
+function OnDraw()
+	if myHero.dead then return end
+	drawRanges()
+end
+
+function Menu()
+	myMenu = scriptConfig("Articuno - the legendary bird", "anivia")
+	
+	myMenu:addSubMenu("SOW", "SOW")
+		SOWi:LoadToMenu(myMenu.SOW)
+	myMenu:addSubMenu("SxOrb", "SxOrb")
+		SxOrb:LoadToMenu(myMenu.SxOrb)
+	myMenu:addSubMenu("Target selector", "ts")
+	ts.name = "Target"
+	myMenu.ts:addTS(ts)
+
+	myMenu:addSubMenu("Anivia - Combo Settings", "combo")
+		myMenu.combo:addParam("useQ", "Use Q in Combo", SCRIPT_PARAM_ONOFF, false)
+		myMenu.combo:addParam("useE", "Use E in Combo", SCRIPT_PARAM_ONOFF, false)
+		myMenu.combo:addParam("useR", "Use R in Combo", SCRIPT_PARAM_ONOFF, false)
+		myMenu.combo:addParam("comboMode", "Combo Mode", SCRIPT_PARAM_LIST, 1, { "QRE", "QER", "RQE", "REQ"})
+		myMenu.combo:addParam("useCombo", "Combo!", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("C"))
+		
+	myMenu:addSubMenu("Anivia - Harass Settings", "harass")
+		myMenu.harass:addParam("useQ", "Use Q in Harass", SCRIPT_PARAM_ONOFF, false)
+		myMenu.harass:addParam("useE", "Use E in Harass", SCRIPT_PARAM_ONOFF, false)
+		myMenu.harass:addParam("autoE", "Auto E if chilled", SCRIPT_PARAM_ONOFF, false)
+		myMenu.harass:addParam("manaCheck", "Don't harass if Mana < %", SCRIPT_PARAM_SLICE, 0, 0, 100)
+		myMenu.harass:addParam("useHarass", "Harass!", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
+		
+	--myMenu:addSubMenu("Anivia - Farm Settings", "qFarm")
+		--myMenu.qFarm:addParam("farmQ",  "Auto farm with Q", SCRIPT_PARAM_ONOFF, false)   
+		--myMenu.qFarm:addParam("onKey", "Farm on key", SCRIPT_PARAM_ONKEYDOWN, false,   string.byte("A"))
+		--myMenu.qFarm:addParam("onToggle", "Farm on toggle", SCRIPT_PARAM_ONKEYTOGGLE, false,   string.byte("K"))
+		
+	myMenu:addSubMenu("Anivia - Draw Settings", "drawing")
+		myMenu.drawing:addParam("drawQ", "Draw Circle Q", SCRIPT_PARAM_ONOFF, false)
+		myMenu.drawing:addParam("drawE", "Draw Circle E", SCRIPT_PARAM_ONOFF, false)
+		myMenu.drawing:addParam("drawR", "Draw Circle R", SCRIPT_PARAM_ONOFF, false)
+		myMenu.drawing:addParam("drawAA", "Draw Circle AA", SCRIPT_PARAM_ONOFF, false)
+		
+	myMenu:addSubMenu("Anivia - Misc Settings", "misc")			
+		myMenu.misc:addSubMenu("Auto level spells", "lvlSkill")
+			myMenu.misc.lvlSkill:addParam("skillOrder", "Order", SCRIPT_PARAM_LIST, 1, {"R>E>Q>W", "R>Q>E>W", "E>R>Q>W"})
+			myMenu.misc.lvlSkill:addParam("enable", "Enable autolevel", SCRIPT_PARAM_ONOFF, false)
+			
+		myMenu.misc:addSubMenu("SkinChanger", "skinChanger")
+			myMenu.misc.skinChanger:addParam("SkinHack","Use Skin Hack", SCRIPT_PARAM_ONOFF, false)
+			myMenu.misc.skinChanger:addParam("skin", "Skin Hack by Shalzuth:", SCRIPT_PARAM_LIST, 1, { "Classic", "Team Spirit Anivia", "Bird of Prey Anivia", "Noxus Hunter Anivia", "Hextech Anivia", "Blackfrost Anivia"})
+			
+		myMenu.misc:addSubMenu("Auto Ignite ", "Ignite")
+			myMenu.misc.Ignite:addParam("enable", "Use auto ignite to finish enemy", SCRIPT_PARAM_ONOFF, false)
+end
+
+function Checks()
+	ts:update()
+	qReady = (myHero:CanUseSpell(_Q) == READY)
+    wReady = (myHero:CanUseSpell(_W) == READY)
+	eReady = (myHero:CanUseSpell(_E) == READY)
+    rReady = (myHero:CanUseSpell(_R) == READY)
+	if ignite ~= nil then
+		igniteReady = (myHero:CanUseSpell(ignite) == READY)
+	end
+	if flash ~= nil then
+		flashReady = (myHero:CanUseSpell(flash) == READY)
+	end
+	igniteDamage = 50 + (20 * myHero.level)
+	autoLevelSkills()
+end
+function autoLevelSkills()
+	if myMenu.misc.lvlSkill.enable then
+		if myHero.level > spellLevel then
+			spellLevel = spellLevel + 1
+			if myMenu.misc.lvlSkill.skillOrder == 1 then			
+				LevelSpell(_R)
+				LevelSpell(_E)
+				LevelSpell(_Q)
+				LevelSpell(_W)
+			end
+			if myMenu.misc.lvlSkill.skillOrder == 2 then	
+				LevelSpell(_R)
+				LevelSpell(_Q)
+				LevelSpell(_E)
+				LevelSpell(_W)
+			end
+			if myMenu.misc.lvlSkill.skillOrder == 3 then	
+				LevelSpell(_E)
+				LevelSpell(_R)
+				LevelSpell(_Q)
+				LevelSpell(_W)
+			end
+		end
+	end
+end
+function sumCheck()
+	if (myHero:GetSpellData(SUMMONER_1).name) == "summonerdot" then 
+		ignite = SUMMONER_1
+	elseif (myHero:GetSpellData(SUMMONER_2).name) == "summonerdot" then 
+		ignite = SUMMONER_2
+	else 
+		ignite = nil
+	end
+	
+	if (myHero:GetSpellData(SUMMONER_1).name) == "summonerflash" then 
+		flash = SUMMONER_1
+	elseif (myHero:GetSpellData(SUMMONER_2).name) == "summonerflash" then 
+		flash = SUMMONER_2
+	else 
+		flash = nil
+	end
+end
+function DetonateQ()
+	if qObj ~= nil and GetDistance(qObj) < 1300 then
+		if qWidth > GetDistance(qObj, target) then
+			CastSpell(_Q)
+		end
+	end
+end
+function TurnOffR()
+	if rObj ~= nil and GetDistance(rObj) < rRange then
+		if GetDistance(rObj, target) > 400 then
+			CastSpell(_R)
+		end
+	end
+end
+
+function Combo()
+	DetonateQ()
+	TurnOffR()
+	if myMenu.combo.comboMode == 1 then
+		if myMenu.combo.useQ and qReady then
+			castQ(target)
+		end
+		if myMenu.combo.useR and rReady then
+			castR(target)
+		end
+		if myMenu.combo.useE and eReady then
+			castE(target)
+		end
+	end
+	if myMenu.combo.comboMode == 2 then
+		if myMenu.combo.useQ and qReady then
+			castQ(target)
+		end
+		if myMenu.combo.useE and eReady then
+			castE(target)
+		end
+		if myMenu.combo.useR and rReady then
+			castR(target)
+		end
+	end
+	if myMenu.combo.comboMode == 3 then
+		if myMenu.combo.useR and rReady then
+			castR(target)
+		end
+		if myMenu.combo.useQ and qReady then
+			castR(target)
+		end
+		if myMenu.combo.useE and eReady then
+			castR(target)
+		end
+	end
+	if myMenu.combo.comboMode == 4 then	
+		if myMenu.combo.useR and rReady then
+			castR(target)
+		end
+		if myMenu.combo.useE and eReady then
+			castR(target)
+		end
+		if myMenu.combo.useQ and qReady then
+			castR(target)
+		end
+	end
+end
+function Harass()
+	DetonateQ()
+	TurnOffR()
+	if (myHero.mana / myHero.maxMana) * 100 > myMenu.harass.manaCheck then
+		if myMenu.harass.autoE and TargetHaveBuff("chilled", Target) then
+					castE(target)
+		end 
+		if myMenu.harass.useQ and qReady then
+				castQ(target)
+		end
+		if myMenu.harass.useE and eReady then
+				castE(target)
+		end
+	end
+end
+
+function autoIgnite()
+	if ignite ~= nil and igniteReady and ValidTarget(target) and target.health + 10 < igniteDamage then
+		CastSpell(ignite, target)
+	end
+end
+
+function castQ(unit)
+	if ValidTarget(unit, qRange) and qReady and qObj == nil then
+		local CastPosition, HitChance, Position =  VP:GetLineCastPosition(unit, qDelay, qWidth, qRange, qSpeed, myHero, false)
+		if HitChance >= 2 then
+			CastSpell(_Q, CastPosition.x, CastPosition.z)
+		end
+	end
+end
+function castE(unit)
+	if ValidTarget(unit, eRange) and eReady then
+		CastSpell(_E, unit)
+	end
+end
+function castR(unit)
+	if ValidTarget(unit, rRange) and rReady and rObj == nil then
+		local CastPosition, HitChance, Position = VP:GetCircularAOECastPosition(unit, rDelay, rWidth, rRange, rSpeed, myHero)
+		if HitChance >= 1 then
+			CastSpell(_R, CastPosition.x, CastPosition.z)
+		end
+	end
+end
+
+function OnCreateObj(obj)
+	if obj.name:find("FlashFrost_mis") then
+		qObj = obj
+	end
+	if obj.name:find("cryo_storm") then
+		rObj = obj
+	end
+end
+function OnDeleteObj(obj)
+	if obj.name:find("FlashFrost_mis") then
+		qObj = nil
+	end
+	if obj.name:find("cryo_storm") then
+		rObj = nil
+	end
+end
+
+function OnGainBuff(unit, buff)	
+    if myMenu.harass.autoE and buff.name == "chilled" and unit.team ~= myHero.team and unit.type == myHero.type then
+        castE(unit)
+     end
+end
+function OnUpdateBuff(unit, buff)
+	if myMenu.harass.autoE and buff.name == "chilled" and unit.team ~= myHero.team and unit.type == myHero.type then
+        castE(unit)
+     end
+end
+function OnLoseBuff(unit, buff)
+	if buff.name == 'chilled'  and unit.team ~= myHero.team then
+		chilled = false
+	end
+end
+
+function SkinChanger(champ, skinId)
+    p = CLoLPacket(0x97)
+    p:EncodeF(myHero.networkID)
+    p.pos = 1
+    t1 = p:Decode1()
+    t2 = p:Decode1()
+    t3 = p:Decode1()
+    t4 = p:Decode1()
+    p:Encode1(t1)
+    p:Encode1(t2)
+    p:Encode1(t3)
+    p:Encode1(bit32.band(t4,0xB))
+    p:Encode1(1)
+    p:Encode4(skinId)
+    for i = 1, #champ do
+        p:Encode1(string.byte(champ:sub(i,i)))
+    end
+    for i = #champ + 1, 64 do
+        p:Encode1(0)
+    end
+    p:Hide()
+    RecvPacket(p)
+end
+function SkinHack()
+	if myMenu.misc.skinChanger.SkinHack and CurSkin ~= myMenu.misc.skinChanger.skin then
+		local SkinIdSwap = { [1] = 6, [2] = 1, [3] = 2, [4] = 3, [5] = 4, [6] = 5 }
+		CurSkin = myMenu.misc.skinChanger.skin
+		SkinChanger(myHero.charName, SkinIdSwap[CurSkin])
+	end
+end
+
+function drawRanges()
+	if myMenu.drawing.drawQ and qReady then
+		DrawCircle(myHero.x, myHero.y, myHero.z, qRange, ARGB(35 , 105, 105, 105))
+	end
+	if myMenu.drawing.drawE and eReady then
+		DrawCircle(myHero.x, myHero.y, myHero.z, eRange, ARGB(35 , 105, 105, 105))
+	end
+	if myMenu.drawing.drawR and rReady then
+		DrawCircle(myHero.x, myHero.y, myHero.z, rRange, ARGB(75 , 185, 185, 185))
+	end
+	if myMenu.drawing.drawAA then
+		DrawCircle(myHero.x, myHero.y, myHero.z, 625 + 60, ARGB(125, 255, 0, 0))
+	end
+end
