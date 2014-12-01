@@ -14,7 +14,7 @@ if myHero.charName ~= "Annie" then return end
 --]]
 
 
-local sversion = "0.1"
+local sversion = "0.11"
 local scriptName = "LittleRedRidingHood"
 local AUTOUPDATE = true
 local UPDATE_HOST = "raw.github.com"
@@ -316,11 +316,11 @@ end
 function Charge()
 	if not stunReady and not Recalling() then
 		if myMenu.misc.chargeStun.chargeW and wReady then
-			CastSpell(_W, myHero.x, myHero.z)
+			DelayAction(function () CastSpell(_W, myHero.x, myHero.z) end, 1)
 		end
 	
 		if myMenu.misc.chargeStun.chargeE and eReady then
-			CastSpell(_E)
+			DelayAction(function () CastSpell(_E) end, 1)
 		end
 	end
 end
